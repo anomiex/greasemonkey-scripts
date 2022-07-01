@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        GitHub Check Sorter
 // @namespace   https://github.com/anomiex/greasemonkey-scripts
-// @version     1.0
+// @version     1.1
 // @description Sorts checks in the GitHub report on a PR by status then text.
 // @grant       none
 // @match       https://github.com/*
@@ -32,12 +32,14 @@ function scoreItem( item ) {
 	// Just look for the status indicator icon.
 	if ( item.querySelector( '.octicon-x' ) ) {
 		return 0;
-	} else if ( item.querySelector( '.octicon-dot' ) ) {
+	} else if ( item.querySelector( '.octicon-stop' ) ) {
 		return 1;
-	} else if ( item.querySelector( '.octicon-check' ) ) {
+	} else if ( item.querySelector( '.octicon-dot, .octicon-dot-fill' ) ) {
 		return 2;
-	} else if ( item.querySelector( '.octicon-skip' ) ) {
+	} else if ( item.querySelector( '.octicon-check' ) ) {
 		return 3;
+	} else if ( item.querySelector( '.octicon-skip' ) ) {
+		return 4;
 	} else {
 		return -1;
 	}
