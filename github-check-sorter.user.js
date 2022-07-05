@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        GitHub Check Sorter
 // @namespace   https://github.com/anomiex/greasemonkey-scripts
-// @version     1.1
+// @version     1.2
 // @description Sorts checks in the GitHub report on a PR by status then text.
 // @grant       none
 // @match       https://github.com/*
@@ -96,83 +96,86 @@ function sortStatusList( statusList ) {
 	statusListObserver.observe( statusList, { subtree: true, childList: true, attributes: true, attributeFilter: [ 'class' ] } );
 }
 
-// Find the "container" on a PR page. Observe it to watch for added children (which might be status lists),
-// and sort any existing status lists.
-try {
-	if ( document.location.hostname === 'github.com' ) {
-		const target = document.querySelector( '#js-repo-pjax-container' );
-		if ( target ) {
-			const attr = target.getAttribute( 'data-check-sorter-hook-installed' );
-			if ( ! attr ) {
-				const hookObserver = new MutationObserver( list => {
-					for ( const m of list ) {
-						try {
-							if ( m.type === 'childList' && m.addedNodes.length ) {
-								for ( const n of m.addedNodes ) {
-									if ( n.classList ) {
-										// If the added node is a status list, sort it.
-										if ( n.classList.contains( 'merge-status-list' ) ) {
-											sortStatusList( n );
-										}
-										// If the added node contains any status lists, sort them.
-										for ( const n2 of n.querySelectorAll( '.merge-status-list' ) ) {
-											sortStatusList( n2 );
-										}
-									}
-								}
-							}
-						} catch ( e ) {
-							console.error( e );
-						}
-					}
-				} );
-				hookObserver.observe( target, { subtree: true, childList: true } );
-				target.setAttribute( 'data-check-sorter-hook-installed', 'true' );
-				console.log( 'github-check-sorter: Doing initial sort' );
-				for ( const n of target.querySelectorAll( '.merge-status-list' ) ) {
-					sortStatusList( n );
-				}
-				console.log( 'github-check-sorter: Initial sort complete' );
-			}
+/**
+ * Sort the check suites sidebar.
+ *
+ * @param {Node} sidebar - DOM node for the sidebar.
+ */
+function sortCheckSuitesSidebar( sidebar ) {
+	const isEl = n => n && n.nodeName !== '#text';
+	const nextEl = n => {
+		do {
+			n = n.nextSibling;
+		} while ( isEl( n ) );
+		return n;
+	};
+
+	const items = Array.from( sidebar.childNodes ).filter( isEl );
+	items.sort( ( a, b ) => a.innerText.localeCompare( b.innerText ) );
+	let cur = isItem( sidebar.firstChild ) ? sidebar.firstChild : nextEl( sidebar.firstChild );
+	for ( const item of items ) {
+		if ( cur !== item ) {
+			const tmp = item.nextSibling;
+			sidebar.insertBefore( item, cur );
+			sidebar.insertBefore( cur, tmp );
+			cur = item;
 		}
+		cur = nextEl( cur );
 	}
-} catch ( e ) {
-	const warnKey = console.warn ? 'warn' : 'log';
-	console[ warnKey ]( 'Warning: github-check-sorter: Failed to install hooks' );
-	console[ warnKey ]( e );
 }
 
-// Also sort the sidebar on the check suites page. No need to watch for mutations here.
+/**
+ * Handle any operations needed on a mutated node.
+ *
+ * @param {Node} n - DOM node.
+ */
+function handleNode( n ) {
+	// If the added node is itself a status list or checks sidebar, sort it.
+	if ( n.matches ) {
+		if ( n.matches( '.merge-status-list' ) ) {
+			sortStatusList( n );
+		}
+		if ( n.matches( 'aside.js-check-suites-sidebar' ) ) {
+			sortCheckSuitesSidebar( n );
+		}
+	}
+
+	// If the added node contains any status lists or sidebars, sort them.
+	if ( n.querySelectorAll ) {
+		for ( const n2 of n.querySelectorAll( '.merge-status-list' ) ) {
+			sortStatusList( n2 );
+		}
+		for ( const n2 of n.querySelectorAll( 'aside.js-check-suites-sidebar' ) ) {
+			sortCheckSuitesSidebar( n2 );
+		}
+	}
+}
+
+// Observe the document for added children (which might be status lists or sidebars),
+// and sort any existing status lists and sidebars.
+// We have to watch the whole document, as switching tabs in GH does something that breaks observation of container nodes on occasion.
 try {
 	if ( document.location.hostname === 'github.com' ) {
-		const target = document.querySelector( 'aside.js-check-suites-sidebar' );
-		if ( target ) {
-			setTimeout( function () {
-				const isEl = n => n && n.nodeName !== '#text';
-				const nextEl = n => {
-					do {
-						n = n.nextSibling;
-					} while ( isEl( n ) );
-					return n;
-				};
-
-				const items = Array.from( target.childNodes ).filter( isEl );
-				items.sort( ( a, b ) => a.innerText.localeCompare( b.innerText ) );
-				let cur = isItem( target.firstChild ) ? target.firstChild : nextEl( target.firstChild );
-				for ( const item of items ) {
-					if ( cur !== item ) {
-						const tmp = item.nextSibling;
-						target.insertBefore( item, cur );
-						target.insertBefore( cur, tmp );
-						cur = item;
+		const documentObserver = new MutationObserver( list => {
+			for ( const m of list ) {
+				try {
+					if ( m.type === 'childList' && m.addedNodes.length ) {
+						for ( const n of m.addedNodes ) {
+							handleNode( n );
+						}
 					}
-					cur = nextEl( cur );
+				} catch ( e ) {
+					console.error( e );
 				}
-			} );
-		}
+			}
+		} );
+		documentObserver.observe( document, { subtree: true, childList: true } );
+		console.log( 'github-check-sorter: Doing initial sort' );
+		handleNode( document );
+		console.log( 'github-check-sorter: Initial sort complete' );
 	}
 } catch ( e ) {
 	const warnKey = console.warn ? 'warn' : 'log';
-	console[ warnKey ]( 'Warning: github-check-sorter: Failed to sort check suites sidebar' );
+	console[ warnKey ]( 'Warning: github-check-sorter: Failed to initialize observer' );
 	console[ warnKey ]( e );
 }
