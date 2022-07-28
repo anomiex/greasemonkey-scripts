@@ -18,5 +18,13 @@ GitHub Actions are really nice for running CI checks. But GitHub doesn't *sort* 
 
 This script sorts the checks by status, and then alphabetically by the displayed title.
 
+### GitHub Diff Tab Fix
+
+[Download GitHub Diff Tab Fix](https://github.com/anomiex/greasemonkey-scripts/raw/master/github-diff-tab-fix.user.js)
+
+GitHub's UI seems to be mainly tested in Chrome. Some of the CSS they use works there but breaks in Firefox, particularly related to handling of tab characters.
+
+This script supplies overrides to correct the display.
+
 [GreaseMonkey]: https://addons.mozilla.org/en-US/firefox/addon/greasemonkey/
 [TamperMonkey]: https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo
