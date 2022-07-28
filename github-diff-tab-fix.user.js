@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        Fix GitHub diff tabs
+// @name        GitHub Diff Tab Fix
 // @namespace   https://github.com/anomiex/greasemonkey-scripts
-// @version     1.0
+// @version     1.0.1
 // @description Fixes tab stops in GitHub's diff display in Firefox.
 // @grant       none
 // @match       https://github.com/*
