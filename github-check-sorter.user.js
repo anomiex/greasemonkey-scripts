@@ -1,11 +1,19 @@
 // ==UserScript==
 // @name        GitHub Check Sorter
 // @namespace   https://github.com/anomiex/greasemonkey-scripts
-// @version     1.2
+// @version     1.3
 // @description Sorts checks in the GitHub report on a PR by status then text.
 // @grant       none
 // @match       https://github.com/*
 // ==/UserScript==
+
+const DEBUG = () => {};
+
+if ( window.GitHub_Check_Sorter ) {
+	DEBUG( "GitHub Check Sorter is already loaded? Not loading again." );
+	return;
+}
+window.GitHub_Check_Sorter = true;
 
 /**
  * Observer to watch for changes to the status list.
@@ -13,13 +21,23 @@
  * @var MutationObserver
  */
 const statusListObserver = new MutationObserver( list => {
+	DEBUG( `github-check-sorter: Mutation event for ${ list.length } mutations` );
+	const seen = new Set();
 	for ( const m of list ) {
+		// Only sort each target once, even if we got a bunch of mutations.
+		if ( seen.has( m.target ) ) {
+			continue;
+		}
+		seen.add( m.target );
+
 		try {
 			sortStatusList( m.target );
 		} catch ( e ) {
 			console.error( e );
 		}
 	}
+	const ignored = statusListObserver.takeRecords().length;
+	DEBUG( `github-check-sorter: Discarding ${ ignored } new mutations` );
 } );
 
 /**
@@ -77,7 +95,7 @@ function nextItem( n ) {
  * @param {Node} statusList - DOM node containing a status list.
  */
 function sortStatusList( statusList ) {
-	statusListObserver.disconnect( statusList );
+	DEBUG( 'github-check-sorter: Sorting status list', statusList );
 
 	const items = Array.from( statusList.childNodes ).filter( isItem );
 	items.sort( ( a, b ) => ( scoreItem( a ) - scoreItem( b ) || a.innerText.localeCompare( b.innerText ) ) );
@@ -93,6 +111,7 @@ function sortStatusList( statusList ) {
 		cur = nextItem( cur );
 	}
 
+	DEBUG( 'github-check-sorter: Done sorting status list', statusList );
 	statusListObserver.observe( statusList, { subtree: true, childList: true, attributes: true, attributeFilter: [ 'class' ] } );
 }
 
@@ -102,6 +121,8 @@ function sortStatusList( statusList ) {
  * @param {Node} sidebar - DOM node for the sidebar.
  */
 function sortCheckSuitesSidebar( sidebar ) {
+	DEBUG( 'github-check-sorter: Sorting sidebar', sidebar );
+
 	const isEl = n => n && n.nodeName !== '#text';
 	const nextEl = n => {
 		do {
@@ -122,6 +143,8 @@ function sortCheckSuitesSidebar( sidebar ) {
 		}
 		cur = nextEl( cur );
 	}
+
+	DEBUG( 'github-check-sorter: Done sorting sidebar', sidebar );
 }
 
 /**
@@ -170,9 +193,9 @@ try {
 			}
 		} );
 		documentObserver.observe( document, { subtree: true, childList: true } );
-		console.log( 'github-check-sorter: Doing initial sort' );
+		DEBUG( 'github-check-sorter: Doing initial sort' );
 		handleNode( document );
-		console.log( 'github-check-sorter: Initial sort complete' );
+		DEBUG( 'github-check-sorter: Initial sort complete' );
 	}
 } catch ( e ) {
 	const warnKey = console.warn ? 'warn' : 'log';
